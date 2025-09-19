@@ -1,6 +1,6 @@
 ## **Product Requirements Document: CemAI Agents**
 
-**Version:** 1.0  
+**Version:** 1.1  
 **Status:** In Development  
 **Author:** Cement AI Hackathon Team
 
@@ -46,9 +46,36 @@ The agent swarm is built on a foundation of enterprise-grade principles to ensur
 * **Radical Observability:** Every decision, proposal, and conflict resolution must be fully traceable. The system will leverage **Cloud Trace** to provide an end-to-end view of a request as it flows through the swarm, making the AI's "thought process" transparent and debuggable.
 * **Zero-Trust Security:** Every interaction is treated as untrusted. Each agent runs under a dedicated, least-privilege IAM service account. All inter-agent communication is authenticated, and all egress to the plant is forced through a single, hardened, and policy-controlled channel.
 
+
 ---
 
-### **4. Agent Features & Requirements**
+### **4. Core Technology Stack**
+
+The CemAI agent swarm is implemented exclusively in TypeScript on Node.js. The enforced stack:
+
+| Component | Technology/Framework |
+| :--- | :--- |
+| Runtime Environment | Node.js (LTS) |
+| Language | TypeScript (strict mode) |
+| Web API | Express |
+| Orchestration | LangGraph.js |
+| AI Cognitive Engine | Vertex AI (Gemini 2.5 Pro; Forecasting; Optimization) via Google AI Node SDK |
+| Cloud Integration | Google Cloud Client Libraries for Node.js |
+| Database Client | `pg` (node-postgres) for AlloyDB (PostgreSQL) |
+| Messaging | Pub/Sub (`@google-cloud/pubsub`) |
+| Auth/Security | IAM, Secret Manager, Cloud KMS, VPC Service Controls, `google-auth-library` |
+| Observability | OpenTelemetry (Node), Cloud Logging/Trace (Node), `prom-client` |
+| Containerization | Docker |
+| Deployment | Cloud Run |
+| IaC | Terraform |
+| Testing | Jest, ts-jest, Supertest |
+| Linting/Formatting | ESLint, Prettier, Husky (pre-commit) |
+
+All services are authored in TypeScript only. Secrets are stored in Secret Manager; services use least-privilege IAM service accounts; all inter-agent calls are authenticated and encrypted.
+
+---
+
+### **5. Agent Features & Requirements**
 
 This section defines the capabilities of each agent in the swarm.
 
@@ -89,7 +116,7 @@ This section defines the capabilities of each agent in the swarm.
 
 ---
 
-### **5. Non-Functional Requirements**
+### **6. Non-Functional Requirements**
 
 * **Security:**
     * **Least Privilege:** Each agent runs with a dedicated IAM service account with the minimum permissions required.
@@ -98,7 +125,7 @@ This section defines the capabilities of each agent in the swarm.
 * **Scalability:** The serverless architecture on Cloud Run must autoscale to handle workloads from one to many production lines without manual intervention.
 * **Reliability & Fault Tolerance:** The use of AlloyDB as a LangGraph checkpointer ensures that if an agent instance crashes mid-thought, it can be resumed from the last saved state upon restart, preventing loss of work.
 
-### **6. Out of Scope**
+### **7. Out of Scope**
 
 * The agents are not responsible for training their own ML models. Model training is handled by a separate MLOps process using Vertex AI Pipelines.
 * The agents will not have direct user interfaces. They expose APIs for the `cemai-ui` to consume.
