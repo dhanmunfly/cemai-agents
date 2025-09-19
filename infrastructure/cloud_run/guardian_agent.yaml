@@ -1,0 +1,356 @@
+# Guardian Agent Cloud Run Service Configuration
+# Deploys the Guardian Agent as a secure, scalable Cloud Run service
+
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: guardian-agent
+  namespace: default
+  labels:
+    app: cemai-agents
+    component: guardian-agent
+    tier: ai-agent
+    environment: production
+  annotations:
+    # Security annotations
+    run.googleapis.com/vpc-access-connector: "cemai-agents-connector"
+    run.googleapis.com/vpc-access-egress: "private-ranges-only"
+    run.googleapis.com/ingress: "internal"
+    
+    # Performance annotations
+    autoscaling.knative.dev/minScale: "1"
+    autoscaling.knative.dev/maxScale: "10"
+    
+    # Monitoring annotations
+    run.googleapis.com/execution-environment: "gen2"
+    run.googleapis.com/cpu-throttling: "false"
+
+spec:
+  template:
+    metadata:
+      labels:
+        app: cemai-agents
+        component: guardian-agent
+        version: "v1.0.0"
+      annotations:
+        # Resource allocation
+        run.googleapis.com/memory: "2Gi"
+        run.googleapis.com/cpu: "2"
+        
+        # Scaling configuration
+        autoscaling.knative.dev/minScale: "1"
+        autoscaling.knative.dev/maxScale: "10"
+        run.googleapis.com/max-instances: "10"
+        
+        # Request handling
+        run.googleapis.com/timeout: "300s"
+        run.googleapis.com/concurrency: "100"
+        
+        # Security configuration
+        run.googleapis.com/sandbox: "gvisor"
+        
+    spec:
+      # Service account for IAM-based security
+      serviceAccountName: guardian-agent@${PROJECT_ID}.iam.gserviceaccount.com
+      
+      # Timeout for request processing
+      timeoutSeconds: 300
+      
+      # Container concurrency
+      containerConcurrency: 100
+      
+      containers:
+      - name: guardian-agent
+        image: ${REGION}-docker.pkg.dev/${PROJECT_ID}/cemai-agents-images/guardian-agent:${VERSION}
+        
+        # Resource requests and limits
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "1000m"
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
+        
+        # Environment variables
+        env:
+        # Application configuration
+        - name: AGENT_ID
+          value: "guardian_agent"
+        - name: ENVIRONMENT
+          value: "production"
+        - name: LOG_LEVEL
+          value: "INFO"
+        
+        # GCP Project configuration
+        - name: PROJECT_ID
+          value: "${PROJECT_ID}"
+        - name: REGION
+          value: "${REGION}"
+        
+        # Vertex AI configuration
+        - name: VERTEX_AI_ENDPOINT_ID
+          valueFrom:
+            secretKeyRef:
+              name: vertex-ai-endpoints
+              key: forecasting-endpoint-id
+        - name: VERTEX_AI_REGION
+          value: "${VERTEX_AI_REGION}"
+        
+        # Database configuration
+        - name: ALLOYDB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: alloydb-connection
+              key: host
+        - name: ALLOYDB_PORT
+          value: "5432"
+        - name: ALLOYDB_DATABASE
+          value: "cemai_agents"
+        - name: ALLOYDB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: alloydb-credentials
+              key: username
+        - name: ALLOYDB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: alloydb-credentials
+              key: password
+        
+        # Pub/Sub configuration
+        - name: PUBSUB_PLANT_DATA_SUBSCRIPTION
+          value: "projects/${PROJECT_ID}/subscriptions/guardian-plant-data"
+        - name: PUBSUB_MARKET_DATA_SUBSCRIPTION
+          value: "projects/${PROJECT_ID}/subscriptions/guardian-market-data"
+        
+        # Agent communication configuration
+        - name: MASTER_CONTROL_ENDPOINT
+          value: "https://master-control-agent-${REGION}-${PROJECT_ID}.a.run.app"
+        - name: A2A_TIMEOUT
+          value: "30"
+        
+        # Quality band configuration
+        - name: LSF_TARGET
+          value: "100.0"
+        - name: LSF_TOLERANCE
+          value: "2.0"
+        - name: PREDICTION_HORIZON_MINUTES
+          value: "60"
+        
+        # Performance configuration
+        - name: MAX_CONCURRENT_PREDICTIONS
+          value: "10"
+        - name: PREDICTION_CACHE_TTL
+          value: "300"  # 5 minutes
+        
+        # Security configuration
+        - name: ENABLE_AUTH_VALIDATION
+          value: "true"
+        - name: ENABLE_INPUT_VALIDATION
+          value: "true"
+        - name: ENABLE_RATE_LIMITING
+          value: "true"
+        
+        # Monitoring configuration
+        - name: ENABLE_TRACING
+          value: "true"
+        - name: ENABLE_METRICS
+          value: "true"
+        - name: METRICS_PORT
+          value: "9090"
+        
+        # Ports
+        ports:
+        - name: http1
+          containerPort: 8080
+          protocol: TCP
+        - name: metrics
+          containerPort: 9090
+          protocol: TCP
+        
+        # Health checks
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+            httpHeaders:
+            - name: User-Agent
+              value: "GoogleHC/1.0"
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+            httpHeaders:
+            - name: User-Agent
+              value: "GoogleHC/1.0"
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        # Startup probe for slower initialization
+        startupProbe:
+          httpGet:
+            path: /startup
+            port: 8080
+            httpHeaders:
+            - name: User-Agent
+              value: "GoogleHC/1.0"
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 10
+          failureThreshold: 10
+        
+        # Security context
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        
+        # Volume mounts for temporary files
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: var-tmp
+          mountPath: /var/tmp
+      
+      # Volumes
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: var-tmp
+        emptyDir: {}
+
+---
+# Horizontal Pod Autoscaler for Guardian Agent
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: guardian-agent-hpa
+  labels:
+    app: cemai-agents
+    component: guardian-agent
+spec:
+  scaleTargetRef:
+    apiVersion: serving.knative.dev/v1
+    kind: Service
+    name: guardian-agent
+  
+  minReplicas: 1
+  maxReplicas: 10
+  
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  
+  # Custom metrics for agent-specific scaling
+  - type: External
+    external:
+      metric:
+        name: custom.googleapis.com|agent|prediction_queue_depth
+        selector:
+          matchLabels:
+            resource.labels.agent_id: "guardian_agent"
+      target:
+        type: AverageValue
+        averageValue: "5"
+  
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 2
+        periodSeconds: 60
+
+---
+# Network Policy for Guardian Agent
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: guardian-agent-network-policy
+  labels:
+    app: cemai-agents
+    component: guardian-agent
+spec:
+  podSelector:
+    matchLabels:
+      component: guardian-agent
+  
+  policyTypes:
+  - Ingress
+  - Egress
+  
+  ingress:
+  # Allow health checks from Google Cloud Load Balancer
+  - from:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 8080
+  
+  # Allow agent-to-agent communication
+  - from:
+    - podSelector:
+        matchLabels:
+          app: cemai-agents
+    ports:
+    - protocol: TCP
+      port: 8080
+  
+  egress:
+  # Allow communication to other agents
+  - to:
+    - podSelector:
+        matchLabels:
+          app: cemai-agents
+    ports:
+    - protocol: TCP
+      port: 8080
+  
+  # Allow communication to GCP APIs
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+  
+  # Allow communication to AlloyDB
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 5432
+  
+  # Deny all other traffic
+  - to: []
+    ports: []

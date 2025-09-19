@@ -1,0 +1,182 @@
+# CemAI Agents - Core Dependencies
+# Enterprise-grade AI agent swarm for autonomous cement plant optimization
+
+# Web Framework and API
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+httpx==0.25.2
+starlette==0.27.0
+
+# Google Cloud Platform
+google-cloud-aiplatform==1.38.1
+google-cloud-alloydb-connector==1.0.0
+google-cloud-pubsub==2.18.4
+google-cloud-storage==2.10.0
+google-cloud-secret-manager==2.16.4
+google-cloud-kms==2.19.2
+google-cloud-trace==1.13.0
+google-cloud-logging==3.8.0
+google-cloud-monitoring==2.16.0
+google-cloud-run==0.10.3
+
+# AI/ML and Data Processing
+langchain==0.0.340
+langgraph==0.0.62
+langsmith==0.0.66
+openai==1.3.7
+pandas==2.1.3
+numpy==1.25.2
+scikit-learn==1.3.2
+tensorflow==2.14.0
+torch==2.1.1
+
+# Database and ORM
+sqlalchemy==2.0.23
+asyncpg==0.29.0
+alembic==1.12.1
+psycopg2-binary==2.9.9
+
+# OPC-UA Plant Integration
+opcua==0.98.13
+cryptography==41.0.7
+
+# Authentication and Security
+pyjwt==2.8.0
+cryptography==41.0.7
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# Data Validation and Serialization
+pydantic==2.5.0
+pydantic-settings==2.1.0
+marshmallow==3.20.1
+
+# Configuration and Environment
+python-dotenv==1.0.0
+dynaconf==3.2.4
+toml==0.10.2
+
+# Monitoring and Observability
+opentelemetry-api==1.21.0
+opentelemetry-sdk==1.21.0
+opentelemetry-exporter-gcp-trace==1.6.0
+opentelemetry-instrumentation-fastapi==0.42b0
+opentelemetry-instrumentation-sqlalchemy==0.42b0
+opentelemetry-instrumentation-httpx==0.42b0
+prometheus-client==0.19.0
+structlog==23.2.0
+
+# Async and Concurrency
+asyncio-mqtt==0.13.0
+aioredis==2.0.1
+celery[redis]==5.3.4
+
+# Task Scheduling and Job Queue
+apscheduler==3.10.4
+rq==1.15.1
+
+# HTTP Client and Networking
+requests==2.31.0
+aiohttp==3.9.1
+websockets==12.0
+
+# Data Processing and Analysis
+scipy==1.11.4
+statsmodels==0.14.0
+plotly==5.17.0
+
+# Development and Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-mock==3.12.0
+pytest-cov==4.1.0
+httpx-mock==0.1.0
+factory-boy==3.3.0
+faker==20.1.0
+
+# Code Quality and Formatting
+black==23.11.0
+isort==5.12.0
+flake8==6.1.0
+mypy==1.7.1
+pre-commit==3.6.0
+
+# Documentation
+sphinx==7.2.6
+sphinx-rtd-theme==1.3.0
+mkdocs==1.5.3
+mkdocs-material==9.4.8
+
+# Utilities
+click==8.1.7
+rich==13.7.0
+typer==0.9.0
+python-multipart==0.0.6
+email-validator==2.1.0
+phonenumbers==8.13.26
+
+# Performance and Optimization
+ujson==5.8.0
+orjson==3.9.10
+msgpack==1.0.7
+
+# Date and Time
+pendulum==2.1.2
+python-dateutil==2.8.2
+
+# Caching
+redis==5.0.1
+cachetools==5.3.2
+
+# Rate Limiting and Circuit Breaker
+slowapi==0.1.9
+tenacity==8.2.3
+circuit-breaker==1.4.0
+
+# Environment-specific dependencies
+# Development only
+pytest-xdist==3.5.0  # Parallel test execution
+pytest-benchmark==4.0.0  # Performance benchmarking
+locust==2.17.0  # Load testing
+bandit==1.7.5  # Security linting
+
+# Production optimizations
+gunicorn==21.2.0  # Production WSGI server
+gevent==23.9.1  # Async worker support
+
+# Version constraints for security
+urllib3>=1.26.18  # Security fix
+certifi>=2023.7.22  # Security fix
+setuptools>=65.5.1  # Security fix
+
+# Optional dependencies for enhanced features
+# Uncomment as needed:
+
+# Enhanced NLP and AI capabilities
+# transformers==4.35.2
+# sentence-transformers==2.2.2
+# spacy==3.7.2
+
+# Advanced time series analysis
+# prophet==1.1.5
+# pystan==3.7.0
+
+# Computer vision (if needed for equipment monitoring)
+# opencv-python==4.8.1.78
+# pillow==10.1.0
+
+# Advanced optimization solvers
+# cvxpy==1.4.1
+# gekko==1.0.6
+
+# Graph databases (if implementing knowledge graphs)
+# neo4j==5.14.1
+# networkx==3.2.1
+
+# Message queuing alternatives
+# kafka-python==2.0.2
+# kombu==5.3.4
+
+# Additional monitoring tools
+# grafana-api==1.0.3
+# influxdb-client==1.38.0
