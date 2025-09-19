@@ -1,0 +1,261 @@
+---
+alwaysApply: true
+---
+
+# CemAI Agents - Development Workflow Rules
+
+## Development Process Guidelines
+
+### Git Workflow
+```bash
+# Feature development
+git checkout -b feature/agent-implementation
+git commit -m "feat(guardian): implement LSF prediction logic"
+git push origin feature/agent-implementation
+
+# Hotfix workflow
+git checkout -b hotfix/security-patch
+git commit -m "fix(security): update dependency versions"
+git push origin hotfix/security-patch
+```
+
+### Commit Message Standards
+- **feat**: New features
+- **fix**: Bug fixes
+- **docs**: Documentation updates
+- **style**: Code formatting changes
+- **refactor**: Code restructuring
+- **test**: Adding or updating tests
+- **chore**: Maintenance tasks
+
+### Development Phases
+
+#### Phase 1: Foundation (Weeks 1-2)
+- [ ] Complete agent specifications (Optimizer, Master Control, Egress)
+- [ ] Set up development environment
+- [ ] Implement shared libraries (A2A protocol, security utilities)
+- [ ] Create base FastAPI application structure
+
+#### Phase 2: Core Implementation (Weeks 3-6)
+- [ ] Implement Guardian Agent with Vertex AI integration
+- [ ] Develop Optimizer Agent with constraint solving
+- [ ] Build Master Control Agent with LangGraph workflows
+- [ ] Create Egress Agent with OPC-UA connectivity
+
+#### Phase 3: Integration (Weeks 7-8)
+- [ ] Agent-to-agent communication testing
+- [ ] End-to-end workflow validation
+- [ ] Security penetration testing
+- [ ] Performance and load testing
+
+#### Phase 4: Deployment (Weeks 9-10)
+- [ ] Infrastructure deployment with Terraform
+- [ ] CI/CD pipeline setup
+- [ ] Production environment configuration
+- [ ] Monitoring and alerting setup
+
+### Code Review Checklist
+- [ ] Follows security best practices
+- [ ] Includes comprehensive error handling
+- [ ] Has appropriate unit and integration tests
+- [ ] Documentation is complete and accurate
+- [ ] Performance meets requirements
+- [ ] Follows established patterns and conventions
+
+### Testing Strategy
+```python
+# Unit tests
+pytest agents/guardian/tests/test_predictor.py -v
+
+# Integration tests  
+pytest tests/integration/test_agent_communication.py -v
+
+# Security tests
+pytest tests/security/test_authentication.py -v
+
+# Load tests
+locust -f tests/load/agent_load_test.py --users=50
+```
+
+### Deployment Workflow
+```bash
+# Infrastructure deployment
+cd infrastructure/terraform
+terraform plan -var-file="prod.tfvars"
+terraform apply -auto-approve
+
+# Application deployment
+gcloud run deploy guardian-agent --source=agents/guardian --region=us-central1
+
+# Monitoring setup
+gcloud monitoring dashboards create --config-from-file=monitoring/dashboards/
+```
+
+### Quality Gates
+- **Code Coverage**: Minimum 90%
+- **Security Scan**: No critical vulnerabilities
+- **Performance**: <60s decision latency
+- **Integration**: All agent communication tests pass
+- **Documentation**: API docs and deployment guides complete
+
+### Release Process
+1. **Development**: Feature branches merged to `develop`
+2. **Staging**: `develop` deployed to staging environment
+3. **Testing**: Comprehensive testing on staging
+4. **Production**: `main` branch deployed to production
+5. **Monitoring**: Post-deployment health checks
+
+### Emergency Procedures
+```bash
+# Emergency rollback
+gcloud run services update-traffic SERVICE_NAME --to-revisions=PREVIOUS=100
+
+# Emergency stop
+curl -X POST https://master-control-agent.run.app/emergency-stop \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)"
+
+# Health check
+curl https://guardian-agent.run.app/health
+```
+
+### Documentation Requirements
+- Update README.md for major changes
+- Create ADRs for architectural decisions
+- Update API documentation for endpoint changes
+- Maintain deployment runbooks
+- Document configuration changes
+
+### Monitoring and Observability
+- All code instrumented with OpenTelemetry
+- Structured logging with correlation IDs
+- Custom metrics for business KPIs
+- Alert policies for critical thresholds
+- Dashboard updates for new features# CemAI Agents - Development Workflow Rules
+
+## Development Process Guidelines
+
+### Git Workflow
+```bash
+# Feature development
+git checkout -b feature/agent-implementation
+git commit -m "feat(guardian): implement LSF prediction logic"
+git push origin feature/agent-implementation
+
+# Hotfix workflow
+git checkout -b hotfix/security-patch
+git commit -m "fix(security): update dependency versions"
+git push origin hotfix/security-patch
+```
+
+### Commit Message Standards
+- **feat**: New features
+- **fix**: Bug fixes
+- **docs**: Documentation updates
+- **style**: Code formatting changes
+- **refactor**: Code restructuring
+- **test**: Adding or updating tests
+- **chore**: Maintenance tasks
+
+### Development Phases
+
+#### Phase 1: Foundation (Weeks 1-2)
+- [ ] Complete agent specifications (Optimizer, Master Control, Egress)
+- [ ] Set up development environment
+- [ ] Implement shared libraries (A2A protocol, security utilities)
+- [ ] Create base FastAPI application structure
+
+#### Phase 2: Core Implementation (Weeks 3-6)
+- [ ] Implement Guardian Agent with Vertex AI integration
+- [ ] Develop Optimizer Agent with constraint solving
+- [ ] Build Master Control Agent with LangGraph workflows
+- [ ] Create Egress Agent with OPC-UA connectivity
+
+#### Phase 3: Integration (Weeks 7-8)
+- [ ] Agent-to-agent communication testing
+- [ ] End-to-end workflow validation
+- [ ] Security penetration testing
+- [ ] Performance and load testing
+
+#### Phase 4: Deployment (Weeks 9-10)
+- [ ] Infrastructure deployment with Terraform
+- [ ] CI/CD pipeline setup
+- [ ] Production environment configuration
+- [ ] Monitoring and alerting setup
+
+### Code Review Checklist
+- [ ] Follows security best practices
+- [ ] Includes comprehensive error handling
+- [ ] Has appropriate unit and integration tests
+- [ ] Documentation is complete and accurate
+- [ ] Performance meets requirements
+- [ ] Follows established patterns and conventions
+
+### Testing Strategy
+```python
+# Unit tests
+pytest agents/guardian/tests/test_predictor.py -v
+
+# Integration tests  
+pytest tests/integration/test_agent_communication.py -v
+
+# Security tests
+pytest tests/security/test_authentication.py -v
+
+# Load tests
+locust -f tests/load/agent_load_test.py --users=50
+```
+
+### Deployment Workflow
+```bash
+# Infrastructure deployment
+cd infrastructure/terraform
+terraform plan -var-file="prod.tfvars"
+terraform apply -auto-approve
+
+# Application deployment
+gcloud run deploy guardian-agent --source=agents/guardian --region=us-central1
+
+# Monitoring setup
+gcloud monitoring dashboards create --config-from-file=monitoring/dashboards/
+```
+
+### Quality Gates
+- **Code Coverage**: Minimum 90%
+- **Security Scan**: No critical vulnerabilities
+- **Performance**: <60s decision latency
+- **Integration**: All agent communication tests pass
+- **Documentation**: API docs and deployment guides complete
+
+### Release Process
+1. **Development**: Feature branches merged to `develop`
+2. **Staging**: `develop` deployed to staging environment
+3. **Testing**: Comprehensive testing on staging
+4. **Production**: `main` branch deployed to production
+5. **Monitoring**: Post-deployment health checks
+
+### Emergency Procedures
+```bash
+# Emergency rollback
+gcloud run services update-traffic SERVICE_NAME --to-revisions=PREVIOUS=100
+
+# Emergency stop
+curl -X POST https://master-control-agent.run.app/emergency-stop \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)"
+
+# Health check
+curl https://guardian-agent.run.app/health
+```
+
+### Documentation Requirements
+- Update README.md for major changes
+- Create ADRs for architectural decisions
+- Update API documentation for endpoint changes
+- Maintain deployment runbooks
+- Document configuration changes
+
+### Monitoring and Observability
+- All code instrumented with OpenTelemetry
+- Structured logging with correlation IDs
+- Custom metrics for business KPIs
+- Alert policies for critical thresholds
+- Dashboard updates for new features
