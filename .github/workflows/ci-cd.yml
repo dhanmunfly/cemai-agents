@@ -1,0 +1,368 @@
+name: CemAI Agents CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+    paths: ['agents/**', 'shared/**', 'infrastructure/**']
+  pull_request:
+    branches: [main]
+    paths: ['agents/**', 'shared/**', 'infrastructure/**']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: us-central1
+  ARTIFACT_REGISTRY: ${{ secrets.GCP_PROJECT_ID }}-cemai-images
+
+jobs:
+  # Code Quality and Security Checks
+  quality-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run Prettier check
+        run: npm run format -- --check
+
+      - name: Run TypeScript compilation
+        run: npm run build
+
+      - name: Security audit
+        run: npm audit --audit-level=moderate
+
+      - name: Run unit tests
+        run: npm run test -- --coverage --watchAll=false
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage/lcov.info
+          flags: unittests
+          name: codecov-umbrella
+
+  # Build and test each agent
+  build-agents:
+    runs-on: ubuntu-latest
+    needs: quality-checks
+    strategy:
+      matrix:
+        agent: [guardian, optimizer, master_control, egress]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build agent
+        run: npm run build --workspace=agents/${{ matrix.agent }}
+
+      - name: Run agent-specific tests
+        run: npm run test --workspace=agents/${{ matrix.agent }}
+
+      - name: Build Docker image
+        run: |
+          cd agents/${{ matrix.agent }}
+          docker build -t ${{ env.ARTIFACT_REGISTRY }}/${{ matrix.agent }}-agent:${{ github.sha }} .
+
+      - name: Configure Docker for GCR
+        run: |
+          echo '${{ secrets.GCP_SA_KEY }}' | base64 -d > gcp-key.json
+          docker login -u _json_key -p "$(cat gcp-key.json)" https://gcr.io
+
+      - name: Push Docker image
+        run: |
+          cd agents/${{ matrix.agent }}
+          docker push ${{ env.ARTIFACT_REGISTRY }}/${{ matrix.agent }}-agent:${{ github.sha }}
+
+  # Infrastructure validation
+  infrastructure-validation:
+    runs-on: ubuntu-latest
+    needs: quality-checks
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.0
+
+      - name: Setup Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive infrastructure/
+
+      - name: Terraform Init
+        run: |
+          cd infrastructure/terraform
+          terraform init -backend=false
+
+      - name: Terraform Validate
+        run: |
+          cd infrastructure/terraform
+          terraform validate
+
+      - name: Terraform Plan
+        run: |
+          cd infrastructure/terraform
+          terraform plan -var="project_id=${{ env.PROJECT_ID }}" -var="environment=staging"
+
+  # Integration tests
+  integration-tests:
+    runs-on: ubuntu-latest
+    needs: [build-agents, infrastructure-validation]
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run integration tests
+        run: npm run test:integration
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+          NODE_ENV: test
+
+  # Deploy to staging
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: [build-agents, infrastructure-validation, integration-tests]
+    if: github.ref == 'refs/heads/develop' || github.event_name == 'workflow_dispatch'
+    environment: staging
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Deploy infrastructure
+        run: |
+          cd infrastructure/terraform
+          terraform init
+          terraform plan -var="project_id=${{ env.PROJECT_ID }}" -var="environment=staging"
+          terraform apply -auto-approve -var="project_id=${{ env.PROJECT_ID }}" -var="environment=staging"
+
+      - name: Deploy agents to Cloud Run
+        run: |
+          for agent in guardian optimizer master_control egress; do
+            gcloud run deploy $agent-agent \
+              --image=${{ env.ARTIFACT_REGISTRY }}/$agent-agent:${{ github.sha }} \
+              --region=${{ env.REGION }} \
+              --platform=managed \
+              --service-account=$agent-agent@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
+              --vpc-connector=cemai-agents-connector \
+              --vpc-egress=private-ranges-only \
+              --memory=2Gi \
+              --cpu=2 \
+              --min-instances=1 \
+              --max-instances=10 \
+              --timeout=300 \
+              --concurrency=100 \
+              --set-env-vars="ENVIRONMENT=staging,LOG_LEVEL=INFO"
+          done
+
+      - name: Run smoke tests
+        run: |
+          # Wait for services to be ready
+          sleep 30
+          
+          # Test each agent health endpoint
+          for agent in guardian optimizer master_control egress; do
+            curl -f https://$agent-agent-${{ env.REGION }}-${{ env.PROJECT_ID }}.a.run.app/health || exit 1
+          done
+
+  # Deploy to production
+  deploy-production:
+    runs-on: ubuntu-latest
+    needs: [build-agents, infrastructure-validation, integration-tests]
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Deploy infrastructure
+        run: |
+          cd infrastructure/terraform
+          terraform init
+          terraform plan -var="project_id=${{ env.PROJECT_ID }}" -var="environment=production"
+          terraform apply -auto-approve -var="project_id=${{ env.PROJECT_ID }}" -var="environment=production"
+
+      - name: Deploy agents to Cloud Run
+        run: |
+          for agent in guardian optimizer master_control egress; do
+            gcloud run deploy $agent-agent \
+              --image=${{ env.ARTIFACT_REGISTRY }}/$agent-agent:${{ github.sha }} \
+              --region=${{ env.REGION }} \
+              --platform=managed \
+              --service-account=$agent-agent@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
+              --vpc-connector=cemai-agents-connector \
+              --vpc-egress=private-ranges-only \
+              --memory=4Gi \
+              --cpu=4 \
+              --min-instances=2 \
+              --max-instances=20 \
+              --timeout=600 \
+              --concurrency=200 \
+              --set-env-vars="ENVIRONMENT=production,LOG_LEVEL=INFO"
+          done
+
+      - name: Run production smoke tests
+        run: |
+          # Wait for services to be ready
+          sleep 60
+          
+          # Test each agent health endpoint
+          for agent in guardian optimizer master_control egress; do
+            curl -f https://$agent-agent-${{ env.REGION }}-${{ env.PROJECT_ID }}.a.run.app/health || exit 1
+          done
+
+      - name: Run load tests
+        run: |
+          # Install k6
+          sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+          
+          # Run load tests
+          k6 run tests/load/load-test.js
+
+  # Security scanning
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: build-agents
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Run Snyk security scan
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+
+  # Performance testing
+  performance-tests:
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: github.ref == 'refs/heads/develop'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run performance tests
+        run: npm run test:performance
+        env:
+          STAGING_BASE_URL: https://staging-${{ env.PROJECT_ID }}.a.run.app
+
+  # Notification and cleanup
+  notify-and-cleanup:
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, deploy-production, security-scan]
+    if: always()
+    steps:
+      - name: Notify on success
+        if: ${{ needs.deploy-staging.result == 'success' || needs.deploy-production.result == 'success' }}
+        run: |
+          echo "✅ Deployment successful!"
+          # Add Slack/Teams notification here
+
+      - name: Notify on failure
+        if: ${{ needs.deploy-staging.result == 'failure' || needs.deploy-production.result == 'failure' }}
+        run: |
+          echo "❌ Deployment failed!"
+          # Add Slack/Teams notification here
+
+      - name: Cleanup old images
+        if: github.ref == 'refs/heads/main'
+        run: |
+          # Clean up old container images (keep last 10)
+          gcloud container images list-tags ${{ env.ARTIFACT_REGISTRY }}/guardian-agent --limit=10 --sort-by=TIMESTAMP --format="value(digest)" | tail -n +11 | xargs -I {} gcloud container images delete ${{ env.ARTIFACT_REGISTRY }}/guardian-agent@{} --quiet || true
+
