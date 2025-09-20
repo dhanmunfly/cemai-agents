@@ -5,8 +5,8 @@ import { logger } from './utils/logger';
 import { A2AClient } from './utils/a2a-client';
 import { SecurityValidator } from './utils/security-validator';
 import { AgentMetrics } from './utils/metrics';
-import { OPCUAClient } from './utils/opcua-client';
-import { COMMAND_TIMEOUT_MS, OPCUA_ENDPOINT } from './config/constants';
+import { OPCUAClientService } from './utils/opcua-client';
+import { OPCUA_CONFIG } from './config/constants';
 
 const app = express();
 app.use(express.json());
@@ -17,7 +17,7 @@ const projectId = process.env.GOOGLE_CLOUD_PROJECT || 'cemai-agents';
 // Initialize services
 const metrics = new AgentMetrics('egress_agent', projectId);
 const a2aClient = new A2AClient('egress_agent');
-const opcuaClient = new OPCUAClient(OPCUA_ENDPOINT);
+const opcuaClient = new OPCUAClientService(OPCUA_CONFIG.endpoint);
 
 // Prometheus metrics
 const register = new client.Registry();
@@ -103,7 +103,7 @@ app.post('/v1/command', async (req, res) => {
     const result = await Promise.race([
       executeOPCUACommand(action),
       new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('Command timeout')), COMMAND_TIMEOUT_MS)
+        setTimeout(() => reject(new Error('Command timeout')), OPCUA_CONFIG.commandTimeout)
       )
     ]) as { executedValue: any; latency: number; status: string };
     
@@ -548,7 +548,7 @@ async function initializeAgent() {
       version: '1.0.0',
       port,
       projectId,
-      opcuaEndpoint: OPCUA_ENDPOINT,
+      opcuaEndpoint: OPCUA_CONFIG.endpoint,
       serverInfo: {
         sessionId: serverInfo.sessionId,
         securityMode: serverInfo.securityMode

@@ -1,4 +1,4 @@
-import { trace } from '@opentelemetry/api';
+import { trace, context } from '@opentelemetry/api';
 import { logger } from './logger';
 
 /**
@@ -30,9 +30,9 @@ export class A2AClient {
       message.sender_agent = this.agentId;
       
       // Add tracing information
-      const currentSpan = trace.getCurrentSpan();
-      if (currentSpan) {
-        const spanContext = currentSpan.spanContext();
+      const activeSpan = trace.getActiveSpan();
+      if (activeSpan) {
+        const spanContext = activeSpan.spanContext();
         message.trace_id = spanContext.traceId;
         message.span_id = spanContext.spanId;
       }

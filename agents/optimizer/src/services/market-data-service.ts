@@ -1,4 +1,4 @@
-import { PubSub } from '@google-cloud/pubsub';
+import { PubSub, Message } from '@google-cloud/pubsub';
 import { logger } from '../utils/logger';
 import { trace } from '@opentelemetry/api';
 
@@ -49,10 +49,10 @@ export class MarketDataService {
         subscriptionCount: this.subscriptions.size
       });
       
-    } catch (error) {
-      logger.error('Failed to initialize market data subscriptions', { error: error.message });
+    } catch (error: unknown) {
+      logger.error('Failed to initialize market data subscriptions', { error: (error as Error).message });
       span.recordException(error as Error);
-      span.setStatus({ code: 2, message: error.message });
+      span.setStatus({ code: 2, message: (error as Error).message });
       throw error;
     } finally {
       span.end();
@@ -79,11 +79,11 @@ export class MarketDataService {
         this.subscriptions.set(subscriptionName, subscription);
       }
       
-      subscription.on('message', async (message) => {
+      subscription.on('message', async (message: Message) => {
         await this.handleFuelPriceMessage(message);
       });
       
-      subscription.on('error', (error) => {
+      subscription.on('error', (error: Error) => {
         logger.error('Fuel prices subscription error', { error: error.message });
       });
       
@@ -92,8 +92,8 @@ export class MarketDataService {
         subscription: subscriptionName
       });
       
-    } catch (error) {
-      logger.error('Failed to subscribe to fuel prices', { error: error.message });
+    } catch (error: unknown) {
+      logger.error('Failed to subscribe to fuel prices', { error: (error as Error).message });
       throw error;
     }
   }
@@ -118,11 +118,11 @@ export class MarketDataService {
         this.subscriptions.set(subscriptionName, subscription);
       }
       
-      subscription.on('message', async (message) => {
+      subscription.on('message', async (message: Message) => {
         await this.handleElectricityPriceMessage(message);
       });
       
-      subscription.on('error', (error) => {
+      subscription.on('error', (error: Error) => {
         logger.error('Electricity prices subscription error', { error: error.message });
       });
       
@@ -131,8 +131,8 @@ export class MarketDataService {
         subscription: subscriptionName
       });
       
-    } catch (error) {
-      logger.error('Failed to subscribe to electricity prices', { error: error.message });
+    } catch (error: unknown) {
+      logger.error('Failed to subscribe to electricity prices', { error: (error as Error).message });
       throw error;
     }
   }
@@ -157,11 +157,11 @@ export class MarketDataService {
         this.subscriptions.set(subscriptionName, subscription);
       }
       
-      subscription.on('message', async (message) => {
+      subscription.on('message', async (message: Message) => {
         await this.handleCarbonCreditMessage(message);
       });
       
-      subscription.on('error', (error) => {
+      subscription.on('error', (error: Error) => {
         logger.error('Carbon credits subscription error', { error: error.message });
       });
       
@@ -170,8 +170,8 @@ export class MarketDataService {
         subscription: subscriptionName
       });
       
-    } catch (error) {
-      logger.error('Failed to subscribe to carbon credits', { error: error.message });
+    } catch (error: unknown) {
+      logger.error('Failed to subscribe to carbon credits', { error: (error as Error).message });
       throw error;
     }
   }
@@ -196,11 +196,11 @@ export class MarketDataService {
         this.subscriptions.set(subscriptionName, subscription);
       }
       
-      subscription.on('message', async (message) => {
+      subscription.on('message', async (message: Message) => {
         await this.handleAlternativeFuelMessage(message);
       });
       
-      subscription.on('error', (error) => {
+      subscription.on('error', (error: Error) => {
         logger.error('Alternative fuel subscription error', { error: error.message });
       });
       
@@ -209,8 +209,8 @@ export class MarketDataService {
         subscription: subscriptionName
       });
       
-    } catch (error) {
-      logger.error('Failed to subscribe to alternative fuel availability', { error: error.message });
+    } catch (error: unknown) {
+      logger.error('Failed to subscribe to alternative fuel availability', { error: (error as Error).message });
       throw error;
     }
   }
@@ -218,7 +218,7 @@ export class MarketDataService {
   /**
    * Handle fuel price messages
    */
-  private async handleFuelPriceMessage(message: any): Promise<void> {
+  private async handleFuelPriceMessage(message: Message): Promise<void> {
     const tracer = trace.getTracer('optimizer-agent');
     const span = tracer.startSpan('handle_fuel_price_message');
     
@@ -269,13 +269,13 @@ export class MarketDataService {
       
       message.ack();
       
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error processing fuel price message', { 
-        error: error.message,
+        error: (error as Error).message,
         messageId: message.id
       });
       span.recordException(error as Error);
-      span.setStatus({ code: 2, message: error.message });
+      span.setStatus({ code: 2, message: (error as Error).message });
       message.nack();
     } finally {
       span.end();
@@ -285,7 +285,7 @@ export class MarketDataService {
   /**
    * Handle electricity price messages
    */
-  private async handleElectricityPriceMessage(message: any): Promise<void> {
+  private async handleElectricityPriceMessage(message: Message): Promise<void> {
     const tracer = trace.getTracer('optimizer-agent');
     const span = tracer.startSpan('handle_electricity_price_message');
     
@@ -332,13 +332,13 @@ export class MarketDataService {
       
       message.ack();
       
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error processing electricity price message', { 
-        error: error.message,
+        error: (error as Error).message,
         messageId: message.id
       });
       span.recordException(error as Error);
-      span.setStatus({ code: 2, message: error.message });
+      span.setStatus({ code: 2, message: (error as Error).message });
       message.nack();
     } finally {
       span.end();
@@ -348,7 +348,7 @@ export class MarketDataService {
   /**
    * Handle carbon credit messages
    */
-  private async handleCarbonCreditMessage(message: any): Promise<void> {
+  private async handleCarbonCreditMessage(message: Message): Promise<void> {
     const tracer = trace.getTracer('optimizer-agent');
     const span = tracer.startSpan('handle_carbon_credit_message');
     
@@ -378,13 +378,13 @@ export class MarketDataService {
       
       message.ack();
       
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error processing carbon credit message', { 
-        error: error.message,
+        error: (error as Error).message,
         messageId: message.id
       });
       span.recordException(error as Error);
-      span.setStatus({ code: 2, message: error.message });
+      span.setStatus({ code: 2, message: (error as Error).message });
       message.nack();
     } finally {
       span.end();
@@ -394,7 +394,7 @@ export class MarketDataService {
   /**
    * Handle alternative fuel availability messages
    */
-  private async handleAlternativeFuelMessage(message: any): Promise<void> {
+  private async handleAlternativeFuelMessage(message: Message): Promise<void> {
     const tracer = trace.getTracer('optimizer-agent');
     const span = tracer.startSpan('handle_alternative_fuel_message');
     
@@ -429,13 +429,13 @@ export class MarketDataService {
       
       message.ack();
       
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error processing alternative fuel message', { 
-        error: error.message,
+        error: (error as Error).message,
         messageId: message.id
       });
       span.recordException(error as Error);
-      span.setStatus({ code: 2, message: error.message });
+      span.setStatus({ code: 2, message: (error as Error).message });
       message.nack();
     } finally {
       span.end();
@@ -473,8 +473,8 @@ export class MarketDataService {
         await this.triggerReoptimization(fuelType, priceChangePercent);
       }
       
-    } catch (error) {
-      logger.error('Error checking re-optimization trigger', { error: error.message });
+    } catch (error: unknown) {
+      logger.error('Error checking re-optimization trigger', { error: (error as Error).message });
     }
   }
 
@@ -493,8 +493,8 @@ export class MarketDataService {
       // This would publish a re-optimization event to the internal topic
       // await this.publishReoptimizationEvent(fuelType, priceChangePercent);
       
-    } catch (error) {
-      logger.error('Error triggering re-optimization', { error: error.message });
+    } catch (error: unknown) {
+      logger.error('Error triggering re-optimization', { error: (error as Error).message });
     }
   }
 
@@ -608,8 +608,8 @@ export class MarketDataService {
       this.topics.clear();
       
       logger.info('All market data subscriptions closed');
-    } catch (error) {
-      logger.error('Error closing market data subscriptions', { error: error.message });
+    } catch (error: unknown) {
+      logger.error('Error closing market data subscriptions', { error: (error as Error).message });
     }
   }
 }

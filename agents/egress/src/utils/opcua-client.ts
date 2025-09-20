@@ -1,6 +1,6 @@
-import { OPCUAClient, MessageSecurityMode, SecurityPolicy, AttributeIds, makeBrowsePath, ClientSubscription, TimestampsToReturn, MonitoringParametersOptions, ReadValueIdOptions, ClientMonitoredItem, DataValue } from 'node-opcua';
-import { logger } from './utils/logger';
-import { OPCUA_CONFIG, PLANT_SYSTEMS, COMMAND_TYPES, SAFETY_CHECKS } from './config/constants';
+import { OPCUAClient, MessageSecurityMode, SecurityPolicy, AttributeIds, makeBrowsePath, ClientSubscription, TimestampsToReturn, MonitoringParametersOptions, ReadValueIdOptions, ClientMonitoredItem, DataValue, ClientSession, DataType, Variant } from 'node-opcua';
+import { logger } from './logger';
+import { OPCUA_CONFIG, PLANT_SYSTEMS, COMMAND_TYPES, SAFETY_CHECKS, COMMAND_VALIDATION } from '../config/constants';
 
 export interface OPCUACommand {
   commandId: string;
@@ -24,16 +24,23 @@ export interface OPCUAConnectionStatus {
   monitoredNodes: number;
 }
 
+interface PlantSystem {
+  name: string;
+  variables: string[];
+  safetyLimits: Record<string, { min: number; max: number }>;
+}
+
 export class OPCUAClientService {
   private client: OPCUAClient;
   private endpoint: string;
+  private session?: ClientSession;
   private connectionStatus: OPCUAConnectionStatus;
   private subscription?: ClientSubscription;
   private monitoredItems: Map<string, ClientMonitoredItem> = new Map();
   private reconnectTimer?: NodeJS.Timeout;
 
-  constructor() {
-    this.endpoint = OPCUA_CONFIG.endpoint;
+  constructor(endpoint: string) {
+    this.endpoint = endpoint;
     this.connectionStatus = {
       connected: false,
       connectionAttempts: 0,
@@ -81,10 +88,10 @@ export class OPCUAClientService {
 
       await this.client.connect(this.endpoint);
       
-      const session = await this.client.createSession();
+      this.session = await this.client.createSession();
       
       // Create subscription for monitoring
-      this.subscription = ClientSubscription.create(session, {
+      this.subscription = ClientSubscription.create(this.session, {
         requestedPublishingInterval: 1000,
         requestedLifetimeCount: 100,
         requestedMaxKeepAliveCount: 10,
@@ -137,6 +144,11 @@ export class OPCUAClientService {
       if (this.subscription) {
         await this.subscription.terminate();
         this.subscription = undefined;
+      }
+
+      if (this.session) {
+        await this.session.close();
+        this.session = undefined;
       }
 
       await this.client.disconnect();
@@ -206,12 +218,11 @@ export class OPCUAClientService {
 
   async readValue(nodeId: string): Promise<any> {
     try {
-      const session = this.client.getSession();
-      if (!session) {
+      if (!this.session) {
         throw new Error('No active OPC-UA session');
       }
 
-      const dataValue = await session.read({
+      const dataValue = await this.session.read({
         nodeId: nodeId,
         attributeId: AttributeIds.Value
       });
@@ -234,28 +245,30 @@ export class OPCUAClientService {
 
   async writeValue(nodeId: string, value: any): Promise<any> {
     try {
-      const session = this.client.getSession();
-      if (!session) {
+      if (!this.session) {
         throw new Error('No active OPC-UA session');
       }
 
-      const statusCode = await session.write({
+      const dataType = this.getDataType(value);
+      const statusCode = await this.session.write({
         nodeId: nodeId,
         attributeId: AttributeIds.Value,
-        value: {
-          value: value,
-          dataType: this.getDataType(value)
-        }
+        value: new DataValue({
+          value: new Variant({
+            dataType: DataType[dataType as keyof typeof DataType],
+            value: value
+          })
+        })
       });
 
-      if (!statusCode.isGood()) {
-        throw new Error(`Write failed with status: ${statusCode.toString()}`);
+      if (statusCode.value !== 0) {
+        throw new Error(`Write failed with status: ${statusCode.description}`);
       }
 
       return {
         nodeId,
         value,
-        statusCode: statusCode.toString(),
+        statusCode: statusCode.description,
         timestamp: new Date().toISOString()
       };
 
@@ -274,9 +287,7 @@ export class OPCUAClientService {
       if (!this.subscription) {
         throw new Error('No active OPC-UA subscription');
       }
-
-      const session = this.client.getSession();
-      if (!session) {
+      if (!this.session) {
         throw new Error('No active OPC-UA session');
       }
 
@@ -387,14 +398,61 @@ export class OPCUAClientService {
     return { ...this.connectionStatus };
   }
 
+  async isConnected(): Promise<boolean> {
+    return this.connectionStatus.connected;
+  }
+
+  async getServerInfo(): Promise<any> {
+    if (!this.session) {
+      throw new Error('No active session');
+    }
+    return {
+      endpoint: this.endpoint,
+      sessionId: this.session.sessionId,
+      securityMode: this.client.securityMode,
+      securityPolicy: this.client.securityPolicy,
+      status: 'connected',
+      capabilities: [] // Add actual capabilities if needed
+    };
+  }
+
+  async validateNodeExists(nodeId: string): Promise<boolean> {
+    try {
+      await this.readValue(nodeId);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async getNodeAttributes(nodeId: string): Promise<any> {
+    if (!this.session) {
+      throw new Error('No active session');
+    }
+    const attributesToRead = [
+      { nodeId, attributeId: AttributeIds.NodeClass },
+      { nodeId, attributeId: AttributeIds.BrowseName },
+      { nodeId, attributeId: AttributeIds.DisplayName },
+      { nodeId, attributeId: AttributeIds.DataType },
+      { nodeId, attributeId: AttributeIds.ValueRank }
+    ];
+    const results = await this.session.read(attributesToRead);
+    const info: { [key: string]: any } = {};
+    results.forEach((result, index) => {
+      const attr = attributesToRead[index].attributeId;
+      info[AttributeIds[attr]] = result.value?.value;
+    });
+    return info;
+  }
+
   private async performSafetyChecks(command: OPCUACommand): Promise<void> {
     try {
       const controlVariable = command.action.controlVariable;
       const proposedValue = command.action.proposedValue;
 
       // Find the system and safety limits for this control variable
-      let safetyLimits: any = null;
-      for (const system of Object.values(PLANT_SYSTEMS)) {
+      let safetyLimits: { min: number; max: number } | null = null;
+      for (const system of Object.values(PLANT_SYSTEMS) as PlantSystem[]) {
         if (system.safetyLimits[controlVariable]) {
           safetyLimits = system.safetyLimits[controlVariable];
           break;
@@ -415,9 +473,9 @@ export class OPCUAClientService {
 
       // Check adjustment magnitude
       const adjustmentPercent = Math.abs(command.action.adjustmentMagnitude) / command.action.currentValue * 100;
-      if (adjustmentPercent > SAFETY_CHECKS.maxAdjustmentPercent) {
+      if (adjustmentPercent > COMMAND_VALIDATION.maxAdjustmentPercent) {
         throw new Error(
-          `Adjustment magnitude ${adjustmentPercent.toFixed(2)}% exceeds maximum allowed ${SAFETY_CHECKS.maxAdjustmentPercent}%`
+          `Adjustment magnitude ${adjustmentPercent.toFixed(2)}% exceeds maximum allowed ${COMMAND_VALIDATION.maxAdjustmentPercent}%`
         );
       }
 
@@ -447,7 +505,7 @@ export class OPCUAClientService {
       // Validate control variable exists
       const controlVariable = command.action.controlVariable;
       let variableExists = false;
-      for (const system of Object.values(PLANT_SYSTEMS)) {
+      for (const system of Object.values(PLANT_SYSTEMS) as PlantSystem[]) {
         if (system.variables.includes(controlVariable)) {
           variableExists = true;
           break;

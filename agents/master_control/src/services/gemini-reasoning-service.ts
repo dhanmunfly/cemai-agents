@@ -103,10 +103,10 @@ Respond in JSON format with:
 
       return analysis;
 
-    } catch (error) {
-      logger.error('Gemini conflict analysis failed', { error: error.message });
+    } catch (error: unknown) {
+      logger.error('Gemini conflict analysis failed', { error: (error as Error).message });
       span.recordException(error as Error);
-      span.setStatus({ code: 2, message: error.message });
+      span.setStatus({ code: 2, message: (error as Error).message });
       
       // Fallback to simple analysis
       return {
@@ -203,10 +203,10 @@ Respond in JSON format with:
 
       return decision;
 
-    } catch (error) {
-      logger.error('Constitutional decision making failed', { error: error.message });
+    } catch (error: unknown) {
+      logger.error('Constitutional decision making failed', { error: (error as Error).message });
       span.recordException(error as Error);
-      span.setStatus({ code: 2, message: error.message });
+      span.setStatus({ code: 2, message: (error as Error).message });
       
       // Fallback decision
       return {
@@ -280,10 +280,10 @@ Respond in JSON format with:
 
       return reasoning;
 
-    } catch (error) {
-      logger.error('Decision reasoning generation failed', { error: error.message });
+    } catch (error: unknown) {
+      logger.error('Decision reasoning generation failed', { error: (error as Error).message });
       span.recordException(error as Error);
-      span.setStatus({ code: 2, message: error.message });
+      span.setStatus({ code: 2, message: (error as Error).message });
       
       return {
         reasoning: 'Fallback reasoning due to AI service error',
@@ -349,10 +349,10 @@ Respond in JSON format with:
 
       return evaluation;
 
-    } catch (error) {
-      logger.error('Proposal evaluation failed', { error: error.message });
+    } catch (error: unknown) {
+      logger.error('Proposal evaluation failed', { error: (error as Error).message });
       span.recordException(error as Error);
-      span.setStatus({ code: 2, message: error.message });
+      span.setStatus({ code: 2, message: (error as Error).message });
       
       return {
         safetyScore: 5,
@@ -422,10 +422,10 @@ Respond in JSON format with:
 
       return emergencyPlan;
 
-    } catch (error) {
-      logger.error('Emergency response generation failed', { error: error.message });
+    } catch (error: unknown) {
+      logger.error('Emergency response generation failed', { error: (error as Error).message });
       span.recordException(error as Error);
-      span.setStatus({ code: 2, message: error.message });
+      span.setStatus({ code: 2, message: (error as Error).message });
       
       return {
         immediateActions: ['Activate emergency protocols', 'Ensure personnel safety'],
@@ -458,8 +458,8 @@ Respond in JSON format with:
         lastUpdated: new Date().toISOString(),
         modelVersion: 'gemini-2.5-pro'
       };
-    } catch (error) {
-      logger.error('Failed to get Gemini model metrics', { error: error.message });
+    } catch (error: unknown) {
+      logger.error('Failed to get Gemini model metrics', { error: (error as Error).message });
       throw error;
     }
   }

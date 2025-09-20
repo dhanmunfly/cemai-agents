@@ -30,7 +30,7 @@ export class A2AClient {
       message.sender_agent = this.agentId;
       
       // Add tracing information
-      const currentSpan = trace.getCurrentSpan();
+      const currentSpan = trace.getActiveSpan();
       if (currentSpan) {
         const spanContext = currentSpan.spanContext();
         message.trace_id = spanContext.traceId;

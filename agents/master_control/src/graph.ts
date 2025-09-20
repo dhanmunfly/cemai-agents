@@ -1,4 +1,4 @@
-import { StateGraph, END } from '@langchain/langgraph';
+import { StateGraph, START, END, Annotation } from '@langchain/langgraph';
 import { logger } from './utils/logger';
 import { DECISION_CONSTITUTION, WORKFLOW_STATUS } from './config/constants';
 
@@ -13,7 +13,7 @@ export interface WorkflowState {
   approvedActions: any[];
   rejectedActions: any[];
   modifications: any[];
-  status: keyof typeof WORKFLOW_STATUS;
+  status: (typeof WORKFLOW_STATUS)[keyof typeof WORKFLOW_STATUS];
   decision?: any;
   executionResults?: any[];
 }
@@ -21,24 +21,24 @@ export interface WorkflowState {
 /**
  * Build the LangGraph workflow for Master Control Agent
  */
-export function buildGraph(): StateGraph<WorkflowState> {
-  const workflow = new StateGraph<WorkflowState>({
-    channels: {
-      requestId: 'string',
-      conversationId: 'string',
-      timestamp: 'string',
-      trigger: 'string',
-      context: 'any',
-      proposals: 'array',
-      conflicts: 'array',
-      approvedActions: 'array',
-      rejectedActions: 'array',
-      modifications: 'array',
-      status: 'string',
-      decision: 'any',
-      executionResults: 'array'
-    }
+export function buildGraph(): any {
+  const State = Annotation.Root({
+    requestId: Annotation<string>(),
+    conversationId: Annotation<string>(),
+    timestamp: Annotation<string>(),
+    trigger: Annotation<string>(),
+    context: Annotation<any>(),
+    proposals: Annotation<any[]>(),
+    conflicts: Annotation<any[]>(),
+    approvedActions: Annotation<any[]>(),
+    rejectedActions: Annotation<any[]>(),
+    modifications: Annotation<any[]>(),
+    status: Annotation<(typeof WORKFLOW_STATUS)[keyof typeof WORKFLOW_STATUS]>(),
+    decision: Annotation<any>(),
+    executionResults: Annotation<any[]>()
   });
+
+  const workflow = new StateGraph(State);
 
   // Add workflow nodes
   workflow.addNode('collect_proposals', collectProposals);
@@ -47,12 +47,15 @@ export function buildGraph(): StateGraph<WorkflowState> {
   workflow.addNode('generate_decision', generateDecision);
   workflow.addNode('send_commands', sendCommands);
 
+  // Set entry point
+  (workflow as any).setEntryPoint('collect_proposals');
+
   // Add workflow edges
-  workflow.addEdge('collect_proposals', 'analyze_conflicts');
-  workflow.addEdge('analyze_conflicts', 'resolve_conflicts');
-  workflow.addEdge('resolve_conflicts', 'generate_decision');
-  workflow.addEdge('generate_decision', 'send_commands');
-  workflow.addEdge('send_commands', END);
+  (workflow as any).addEdge('collect_proposals', 'analyze_conflicts');
+  (workflow as any).addEdge('analyze_conflicts', 'resolve_conflicts');
+  (workflow as any).addEdge('resolve_conflicts', 'generate_decision');
+  (workflow as any).addEdge('generate_decision', 'send_commands');
+  (workflow as any).addEdge('send_commands', END);
 
   return workflow.compile();
 }

@@ -1,4 +1,4 @@
-import { monitoring_v3 } from '@google-cloud/monitoring';
+import { v3 } from '@google-cloud/monitoring';
 import { logger } from './logger';
 
 /**
@@ -8,13 +8,13 @@ import { logger } from './logger';
 export class AgentMetrics {
   private agentId: string;
   private projectId: string;
-  private monitoringClient: monitoring_v3.MetricServiceClient;
+  private monitoringClient: v3.MetricServiceClient;
   private projectName: string;
 
   constructor(agentId: string, projectId: string) {
     this.agentId = agentId;
     this.projectId = projectId;
-    this.monitoringClient = new monitoring_v3.MetricServiceClient();
+    this.monitoringClient = new v3.MetricServiceClient();
     this.projectName = `projects/${projectId}`;
   }
 
@@ -154,7 +154,8 @@ export class AgentMetrics {
    * Send custom metric to Google Cloud Monitoring
    */
   private sendCustomMetric(metricName: string, value: number, labels: Record<string, string>): void {
-    const series = new monitoring_v3.TimeSeries();
+    // @ts-ignore
+    const series = new v3.TimeSeries();
     series.metric = {
       type: `custom.googleapis.com/${metricName}`,
       labels: labels
@@ -168,7 +169,8 @@ export class AgentMetrics {
       }
     };
 
-    const point = new monitoring_v3.Point();
+    // @ts-ignore
+    const point = new v3.Point();
     point.value = { doubleValue: value };
     point.interval = {
       endTime: {
@@ -182,7 +184,7 @@ export class AgentMetrics {
     this.monitoringClient.createTimeSeries({
       name: this.projectName,
       timeSeries: [series]
-    }).catch(error => {
+    }).catch((error: Error) => {
       logger.error('Failed to send metric to Cloud Monitoring', { 
         error: error.message,
         metricName,

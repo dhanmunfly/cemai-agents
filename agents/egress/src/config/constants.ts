@@ -12,7 +12,18 @@ export const OPCUA_CONFIG = {
   commandTimeout: 30000 // 30 seconds
 };
 
-export const PLANT_SYSTEMS = {
+export interface SafetyLimit {
+  min: number;
+  max: number;
+}
+
+export interface PlantSystem {
+  name: string;
+  variables: string[];
+  safetyLimits: { [key: string]: SafetyLimit };
+}
+
+export const PLANT_SYSTEMS: Record<string, PlantSystem> = {
   kiln: {
     name: 'kiln_system',
     variables: ['kiln_speed', 'kiln_temperature', 'fuel_flow'],

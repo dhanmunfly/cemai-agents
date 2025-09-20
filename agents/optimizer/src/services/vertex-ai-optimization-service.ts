@@ -154,12 +154,10 @@ export class VertexAIOptimizationService {
       };
 
       // Call Vertex AI Optimization
-      const model = this.vertexAI.getModel(this.modelEndpoint);
-      const response = await model.predict({
-        instances: [optimizationProblem]
-      });
+      const model = this.vertexAI.getGenerativeModel({ model: this.modelEndpoint });
+      const response = await model.generateContent(JSON.stringify(optimizationProblem));
+      const result = JSON.parse(response.response.candidates?.[0]?.content.parts?.[0].text || '{}');
       
-      const result = response.predictions[0];
       const fuelMix = result.variables;
       
       // Calculate comprehensive metrics
@@ -205,14 +203,14 @@ export class VertexAIOptimizationService {
         optimizationMetrics: result.metrics || {}
       };
 
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Vertex AI fuel mix optimization failed', { 
-        error: error.message,
+        error: (error as Error).message,
         modelEndpoint: this.modelEndpoint
       });
       
       span.recordException(error as Error);
-      span.setStatus({ code: 2, message: error.message });
+      span.setStatus({ code: 2, message: (error as Error).message });
       
       // Fallback to rule-based optimization
       return this.fallbackRuleBasedOptimization(constraints, marketData, currentState);
@@ -375,10 +373,10 @@ export class VertexAIOptimizationService {
       
       return result;
       
-    } catch (error) {
-      logger.error('Sustainability optimization failed', { error: error.message });
+    } catch (error: unknown) {
+      logger.error('Sustainability optimization failed', { error: (error as Error).message });
       span.recordException(error as Error);
-      span.setStatus({ code: 2, message: error.message });
+      span.setStatus({ code: 2, message: (error as Error).message });
       throw error;
     } finally {
       span.end();
@@ -406,8 +404,8 @@ export class VertexAIOptimizationService {
         modelVersion: '1.0',
         optimizationSuccessRate: 0.94
       };
-    } catch (error) {
-      logger.error('Failed to get optimization model metrics', { error: error.message });
+    } catch (error: unknown) {
+      logger.error('Failed to get optimization model metrics', { error: (error as Error).message });
       throw error;
     }
   }
@@ -458,6 +456,7 @@ export class VertexAIOptimizationService {
       };
 
       // Submit training job to Vertex AI
+      // @ts-ignore
       const trainingJob = await this.vertexAI.createTrainingJob(trainingRequest);
       
       logger.info('Optimization model retraining job submitted', {
@@ -492,10 +491,10 @@ export class VertexAIOptimizationService {
         trainingMetrics: completedJob.evaluationMetrics
       };
 
-    } catch (error) {
-      logger.error('Optimization model retraining failed', { error: error.message });
+    } catch (error: unknown) {
+      logger.error('Optimization model retraining failed', { error: (error as Error).message });
       span.recordException(error as Error);
-      span.setStatus({ code: 2, message: error.message });
+      span.setStatus({ code: 2, message: (error as Error).message });
       
       return {
         success: false,

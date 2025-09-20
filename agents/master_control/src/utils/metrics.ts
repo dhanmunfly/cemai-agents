@@ -1,4 +1,4 @@
-import { monitoring_v3 } from '@google-cloud/monitoring';
+import { v3 } from '@google-cloud/monitoring';
 import { logger } from './logger';
 
 /**
@@ -8,13 +8,13 @@ import { logger } from './logger';
 export class AgentMetrics {
   private agentId: string;
   private projectId: string;
-  private monitoringClient: monitoring_v3.MetricServiceClient;
+  private monitoringClient: v3.MetricServiceClient;
   private projectName: string;
 
   constructor(agentId: string, projectId: string) {
     this.agentId = agentId;
     this.projectId = projectId;
-    this.monitoringClient = new monitoring_v3.MetricServiceClient();
+    this.monitoringClient = new v3.MetricServiceClient();
     this.projectName = `projects/${projectId}`;
   }
 
@@ -170,37 +170,35 @@ export class AgentMetrics {
    * Send custom metric to Google Cloud Monitoring
    */
   private sendCustomMetric(metricName: string, value: number, labels: Record<string, string>): void {
-    const series = new monitoring_v3.TimeSeries();
-    series.metric = {
-      type: `custom.googleapis.com/${metricName}`,
-      labels: labels
-    };
-    
-    series.resource = {
-      type: 'gce_instance',
-      labels: {
-        instance_id: this.agentId,
-        zone: process.env.GOOGLE_CLOUD_REGION || 'us-central1'
-      }
+    const series = {
+      metric: {
+        type: `custom.googleapis.com/${metricName}`,
+        labels: labels
+      },
+      resource: {
+        type: 'gce_instance',
+        labels: {
+          instance_id: this.agentId,
+          zone: process.env.GOOGLE_CLOUD_REGION || 'us-central1'
+        }
+      },
+      points: [{
+        value: { doubleValue: value },
+        interval: {
+          endTime: {
+            seconds: Math.floor(Date.now() / 1000)
+          }
+        }
+      }]
     };
 
-    const point = new monitoring_v3.Point();
-    point.value = { doubleValue: value };
-    point.interval = {
-      endTime: {
-        seconds: Math.floor(Date.now() / 1000)
-      }
-    };
-
-    series.points = [point];
-
-    // Send to Cloud Monitoring (async, don't wait for response)
+    // Send to Cloud Monitoring
     this.monitoringClient.createTimeSeries({
       name: this.projectName,
       timeSeries: [series]
-    }).catch(error => {
+    }).catch((error: unknown) => {
       logger.error('Failed to send metric to Cloud Monitoring', { 
-        error: error.message,
+        error: (error as Error).message,
         metricName,
         value
       });

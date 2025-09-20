@@ -203,10 +203,10 @@ export class AlloyDBStateManager {
         client.release();
       }
       
-    } catch (error) {
-      logger.error('Failed to initialize AlloyDB state schema', { error: error.message });
+    } catch (error: unknown) {
+      logger.error('Failed to initialize AlloyDB state schema', { error: (error as Error).message });
       span.recordException(error as Error);
-      span.setStatus({ code: 2, message: error.message });
+      span.setStatus({ code: 2, message: (error as Error).message });
       throw error;
     } finally {
       span.end();
@@ -286,13 +286,13 @@ export class AlloyDBStateManager {
         client.release();
       }
       
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Failed to save workflow state to AlloyDB', { 
-        error: error.message,
+        error: (error as Error).message,
         requestId: state.requestId
       });
       span.recordException(error as Error);
-      span.setStatus({ code: 2, message: error.message });
+      span.setStatus({ code: 2, message: (error as Error).message });
       throw error;
     } finally {
       span.end();
@@ -357,13 +357,13 @@ export class AlloyDBStateManager {
         client.release();
       }
       
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Failed to load workflow state from AlloyDB', { 
-        error: error.message,
+        error: (error as Error).message,
         requestId
       });
       span.recordException(error as Error);
-      span.setStatus({ code: 2, message: error.message });
+      span.setStatus({ code: 2, message: (error as Error).message });
       throw error;
     } finally {
       span.end();
@@ -422,13 +422,13 @@ export class AlloyDBStateManager {
         client.release();
       }
       
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Failed to save LangGraph checkpoint', { 
-        error: error.message,
+        error: (error as Error).message,
         checkpointId
       });
       span.recordException(error as Error);
-      span.setStatus({ code: 2, message: error.message });
+      span.setStatus({ code: 2, message: (error as Error).message });
       throw error;
     } finally {
       span.end();
@@ -488,14 +488,14 @@ export class AlloyDBStateManager {
         client.release();
       }
       
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Failed to load LangGraph checkpoint', { 
-        error: error.message,
+        error: (error as Error).message,
         threadId,
         checkpointNs
       });
       span.recordException(error as Error);
-      span.setStatus({ code: 2, message: error.message });
+      span.setStatus({ code: 2, message: (error as Error).message });
       throw error;
     } finally {
       span.end();
@@ -569,13 +569,13 @@ export class AlloyDBStateManager {
         client.release();
       }
       
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Failed to save decision to history', { 
-        error: error.message,
+        error: (error as Error).message,
         decisionId: decisionData.decisionId
       });
       span.recordException(error as Error);
-      span.setStatus({ code: 2, message: error.message });
+      span.setStatus({ code: 2, message: (error as Error).message });
       throw error;
     } finally {
       span.end();
@@ -634,13 +634,13 @@ export class AlloyDBStateManager {
         client.release();
       }
       
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Failed to log agent communication', { 
-        error: error.message,
+        error: (error as Error).message,
         messageId: messageData.messageId
       });
       span.recordException(error as Error);
-      span.setStatus({ code: 2, message: error.message });
+      span.setStatus({ code: 2, message: (error as Error).message });
       throw error;
     } finally {
       span.end();
@@ -688,13 +688,13 @@ export class AlloyDBStateManager {
         client.release();
       }
       
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Failed to record performance metric', { 
-        error: error.message,
+        error: (error as Error).message,
         metricName
       });
       span.recordException(error as Error);
-      span.setStatus({ code: 2, message: error.message });
+      span.setStatus({ code: 2, message: (error as Error).message });
       throw error;
     } finally {
       span.end();
@@ -760,10 +760,10 @@ export class AlloyDBStateManager {
         client.release();
       }
       
-    } catch (error) {
-      logger.error('Failed to get workflow statistics', { error: error.message });
+    } catch (error: unknown) {
+      logger.error('Failed to get workflow statistics', { error: (error as Error).message });
       span.recordException(error as Error);
-      span.setStatus({ code: 2, message: error.message });
+      span.setStatus({ code: 2, message: (error as Error).message });
       throw error;
     } finally {
       span.end();
@@ -777,8 +777,8 @@ export class AlloyDBStateManager {
     try {
       await this.pool.end();
       logger.info('AlloyDB state manager connections closed');
-    } catch (error) {
-      logger.error('Error closing AlloyDB state manager connections', { error: error.message });
+    } catch (error: unknown) {
+      logger.error('Error closing AlloyDB state manager connections', { error: (error as Error).message });
     }
   }
 
@@ -794,8 +794,8 @@ export class AlloyDBStateManager {
       } finally {
         client.release();
       }
-    } catch (error) {
-      logger.error('AlloyDB state manager health check failed', { error: error.message });
+    } catch (error: unknown) {
+      logger.error('AlloyDB state manager health check failed', { error: (error as Error).message });
       return false;
     }
   }

@@ -9,6 +9,7 @@ import { A2AClient } from './utils/a2a-client';
 import { SecurityValidator } from './utils/security-validator';
 import { AgentMetrics } from './utils/metrics';
 import { OPTIMIZATION_MODEL, MARKET_DATA_TOPIC } from './config/constants';
+import { Message } from '@google-cloud/pubsub';
 
 const app = express();
 app.use(express.json());
@@ -122,12 +123,12 @@ app.post('/v1/optimize', async (req, res) => {
       timestamp: new Date().toISOString()
     });
 
-  } catch (error) {
-    logger.error('Fuel mix optimization failed', { error: error.message, stack: error.stack });
+  } catch (error: unknown) {
+    logger.error('Fuel mix optimization failed', { error: (error as Error).message, stack: (error as Error).stack });
     proposalCount.labels('optimization', 'error').inc();
     
-    span.recordException(error);
-    span.setStatus({ code: 2, message: error.message });
+    span.recordException(error as Error);
+    span.setStatus({ code: 2, message: (error as Error).message });
     
     res.status(500).json({
       agent: 'optimizer',
@@ -172,12 +173,10 @@ async function generateFuelMixOptimization(constraints: any[], marketData: any, 
     };
 
     // Call Vertex AI Optimization
-    const model = vertexAI.getModel(OPTIMIZATION_MODEL);
-    const response = await model.predict({
-      instances: [optimizationProblem]
-    });
+    const model = vertexAI.getGenerativeModel({ model: OPTIMIZATION_MODEL });
+    const response = await model.generateContent(JSON.stringify({instances: [optimizationProblem]}));
     
-    const result = response.predictions[0];
+    const result = JSON.parse(response.response.candidates?.[0]?.content.parts?.[0].text || '{}');
     const fuelMix = result.variables;
     
     // Calculate metrics
@@ -201,9 +200,9 @@ async function generateFuelMixOptimization(constraints: any[], marketData: any, 
       baselineCost
     };
     
-  } catch (error) {
-    logger.error('Vertex AI optimization failed', { error: error.message });
-    throw new Error(`Optimization service error: ${error.message}`);
+  } catch (error: unknown) {
+    logger.error('Vertex AI optimization failed', { error: (error as Error).message });
+    throw new Error(`Optimization service error: ${(error as Error).message}`);
   }
 }
 
@@ -297,9 +296,9 @@ async function createOptimizationProposal(optimization: any, constraints: any[])
       ]
     };
     
-  } catch (error) {
-    logger.error('Optimization proposal creation failed', { error: error.message });
-    throw new Error(`Proposal creation error: ${error.message}`);
+  } catch (error: unknown) {
+    logger.error('Optimization proposal creation failed', { error: (error as Error).message });
+    throw new Error(`Proposal creation error: ${(error as Error).message}`);
   }
 }
 
@@ -330,8 +329,8 @@ async function sendOptimizationProposal(proposal: any) {
       costSavings: proposal.expectedOutcomes[0]?.expectedValue
     });
     
-  } catch (error) {
-    logger.error('Failed to send optimization proposal', { error: error.message });
+  } catch (error: unknown) {
+    logger.error('Failed to send optimization proposal', { error: (error as Error).message });
     throw error;
   }
 }
@@ -341,7 +340,7 @@ async function subscribeToMarketData() {
   try {
     const subscription = pubsub.subscription('market-data-updates');
     
-    subscription.on('message', async (message) => {
+    subscription.on('message', async (message: Message) => {
       try {
         const data = JSON.parse(message.data.toString());
         
@@ -364,15 +363,19 @@ async function subscribeToMarketData() {
         }
         
         message.ack();
-      } catch (error) {
-        logger.error('Error processing market data message', { error: error.message });
+      } catch (error: unknown) {
+        logger.error('Error processing market data message', { error: (error as Error).message });
         message.nack();
       }
     });
+
+    subscription.on('error', (error: Error) => {
+      logger.error('PubSub subscription error', { error: error.message });
+    });
     
     logger.info('Subscribed to market data updates');
-  } catch (error) {
-    logger.error('Failed to subscribe to market data', { error: error.message });
+  } catch (error: unknown) {
+    logger.error('Failed to subscribe to market data', { error: (error as Error).message });
   }
 }
 
@@ -419,8 +422,8 @@ async function triggerReoptimization(marketData: any) {
       });
     }
     
-  } catch (error) {
-    logger.error('Market-driven re-optimization failed', { error: error.message });
+  } catch (error: unknown) {
+    logger.error('Market-driven re-optimization failed', { error: (error as Error).message });
   }
 }
 
@@ -436,8 +439,8 @@ async function initializeAgent() {
       port,
       projectId
     });
-  } catch (error) {
-    logger.error('Optimizer Agent initialization failed', { error: error.message });
+  } catch (error: unknown) {
+    logger.error('Optimizer Agent initialization failed', { error: (error as Error).message });
     process.exit(1);
   }
 }

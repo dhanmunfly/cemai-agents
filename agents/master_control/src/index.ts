@@ -6,7 +6,7 @@ import { A2AClient } from './utils/a2a-client';
 import { SecurityValidator } from './utils/security-validator';
 import { AgentMetrics } from './utils/metrics';
 import { buildGraph } from './graph';
-import { DECISION_TIMEOUT_MS } from './config/constants';
+import { DECISION_TIMEOUT_MS, WORKFLOW_STATUS } from './config/constants';
 
 const app = express();
 app.use(express.json());
@@ -96,7 +96,7 @@ app.post('/v1/orchestrate', async (req, res) => {
       approvedActions: [],
       rejectedActions: [],
       modifications: [],
-      status: 'initializing' as const
+      status: WORKFLOW_STATUS.INITIALIZING
     };
     
     // Execute LangGraph workflow with timeout
@@ -106,7 +106,7 @@ app.post('/v1/orchestrate', async (req, res) => {
       new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Decision timeout')), DECISION_TIMEOUT_MS)
       )
-    ]);
+    ]) as any;
     
     // Update metrics
     const latency = (Date.now() - new Date(initialState.timestamp).getTime()) / 1000;
@@ -150,12 +150,12 @@ app.post('/v1/orchestrate', async (req, res) => {
       timestamp: new Date().toISOString()
     });
 
-  } catch (error) {
-    logger.error('Workflow orchestration failed', { error: error.message, stack: error.stack });
+  } catch (error: unknown) {
+    logger.error('Workflow orchestration failed', { error: (error as Error).message, stack: (error as Error).stack });
     workflowCount.labels('error').inc();
     
-    span.recordException(error);
-    span.setStatus({ code: 2, message: error.message });
+    span.recordException(error as Error);
+    span.setStatus({ code: 2, message: (error as Error).message });
     
     res.status(500).json({
       agent: 'master_control',
@@ -209,10 +209,10 @@ app.post('/a2a/receive', async (req, res) => {
     
     res.status(200).json(response);
     
-  } catch (error) {
-    logger.error('A2A message processing failed', { error: error.message });
-    span.recordException(error);
-    span.setStatus({ code: 2, message: error.message });
+  } catch (error: unknown) {
+    logger.error('A2A message processing failed', { error: (error as Error).message });
+    span.recordException(error as Error);
+    span.setStatus({ code: 2, message: (error as Error).message });
     
     res.status(500).json({
       error: 'Message processing failed',
@@ -253,8 +253,8 @@ async function handleProposal(message: any): Promise<any> {
       priority: 'normal'
     };
     
-  } catch (error) {
-    logger.error('Proposal handling failed', { error: error.message });
+  } catch (error: unknown) {
+    logger.error('Proposal handling failed', { error: (error as Error).message });
     throw error;
   }
 }
@@ -285,8 +285,8 @@ async function handleStatus(message: any): Promise<any> {
       priority: 'normal'
     };
     
-  } catch (error) {
-    logger.error('Status handling failed', { error: error.message });
+  } catch (error: unknown) {
+    logger.error('Status handling failed', { error: (error as Error).message });
     throw error;
   }
 }
@@ -317,8 +317,8 @@ async function handleData(message: any): Promise<any> {
       priority: 'normal'
     };
     
-  } catch (error) {
-    logger.error('Data handling failed', { error: error.message });
+  } catch (error: unknown) {
+    logger.error('Data handling failed', { error: (error as Error).message });
     throw error;
   }
 }
@@ -332,8 +332,8 @@ async function initializeAgent() {
       port,
       projectId
     });
-  } catch (error) {
-    logger.error('Master Control Agent initialization failed', { error: error.message });
+  } catch (error: unknown) {
+    logger.error('Master Control Agent initialization failed', { error: (error as Error).message });
     process.exit(1);
   }
 }
