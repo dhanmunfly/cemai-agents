@@ -14,7 +14,7 @@ import { Message } from '@google-cloud/pubsub';
 const app = express();
 app.use(express.json());
 
-const port = process.env.PORT ? Number(process.env.PORT) : 8082;
+const port = process.env.PORT ? Number(process.env.PORT) : 8080;
 const projectId = process.env.GOOGLE_CLOUD_PROJECT || 'cemai-agents';
 const region = process.env.GOOGLE_CLOUD_REGION || 'us-central1';
 

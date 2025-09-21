@@ -11,7 +11,7 @@ import { DECISION_TIMEOUT_MS, WORKFLOW_STATUS } from './config/constants';
 const app = express();
 app.use(express.json());
 
-const port = process.env.PORT ? Number(process.env.PORT) : 8083;
+const port = process.env.PORT ? Number(process.env.PORT) : 8080;
 const projectId = process.env.GOOGLE_CLOUD_PROJECT || 'cemai-agents';
 
 // Initialize services

@@ -1,4 +1,4 @@
-# Guardian Agent Dockerfile
+# Main API Service Dockerfile
 FROM node:18-alpine
 
 # Set working directory
@@ -8,7 +8,7 @@ WORKDIR /app
 COPY package*.json ./
 COPY tsconfig*.json ./
 
-# Install all dependencies (including dev dependencies for build)
+# Install dependencies
 RUN npm install --legacy-peer-deps --force
 
 # Copy source code
@@ -17,16 +17,13 @@ COPY src/ ./src/
 # Build TypeScript
 RUN npm run build
 
-# Keep all dependencies for now to avoid conflicts
-# RUN npm prune --production
-
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs
-RUN adduser -S guardian -u 1001
+RUN adduser -S api -u 1001
 
 # Change ownership
-RUN chown -R guardian:nodejs /app
-USER guardian
+RUN chown -R api:nodejs /app
+USER api
 
 # Expose port
 EXPOSE 8080

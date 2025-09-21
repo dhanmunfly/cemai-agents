@@ -1,52 +1,30 @@
 {
-  "name": "cemai-agents",
-  "version": "0.1.0",
-  "private": true,
-  "description": "CemAI Agents monorepo (TypeScript, Express, LangGraph.js)",
-  "workspaces": [
-    "agents/*"
-  ],
-  "engines": {
-    "node": ">=18 <23"
-  },
+  "name": "cemai-infrastructure-api",
+  "version": "1.0.0",
+  "description": "CemAI Infrastructure API Service",
+  "main": "dist/test-service.js",
   "scripts": {
-    "build": "npm --workspaces run build",
-    "start": "npm --workspaces run start",
-    "dev": "concurrently -n guardian,optimizer,master_control,egress -c green,cyan,yellow,magenta \"npm --workspace @cemai/guardian run dev\" \"npm --workspace @cemai/optimizer run dev\" \"npm --workspace @cemai/master_control run dev\" \"npm --workspace @cemai/egress run dev\"",
-    "lint": "eslint \"**/*.ts\" --max-warnings=0",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "test": "jest --passWithNoTests",
-    "test:unit": "jest tests/unit --passWithNoTests",
-    "test:integration": "jest tests/integration --passWithNoTests",
-    "test:performance": "jest tests/performance --passWithNoTests",
-    "test:coverage": "jest --coverage --passWithNoTests",
-    "test:watch": "jest --watch --passWithNoTests",
-    "security:audit": "npm audit --audit-level=moderate",
-    "security:scan": "npm audit --audit-level=high",
-    "docker:build": "npm --workspaces run docker:build",
-    "docker:push": "npm --workspaces run docker:push",
-    "infrastructure:plan": "cd infrastructure/terraform && terraform plan",
-    "infrastructure:apply": "cd infrastructure/terraform && terraform apply",
-    "infrastructure:destroy": "cd infrastructure/terraform && terraform destroy",
-    "deploy:staging": "npm run build && npm run docker:build && npm run docker:push",
-    "deploy:production": "npm run build && npm run docker:build && npm run docker:push"
+    "build": "tsc",
+    "start": "node dist/test-service.js",
+    "start:gateway": "node dist/agents-gateway.js",
+    "start:auth": "node dist/auth-gateway.js",
+    "dev": "ts-node src/test-service.ts",
+    "dev:gateway": "ts-node src/agents-gateway.ts",
+    "test": "jest"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "winston": "^3.17.0"
   },
   "devDependencies": {
-    "@types/jest": "^29.5.12",
-    "@types/node": "^20.14.9",
-    "@types/supertest": "^6.0.2",
-    "@typescript-eslint/eslint-plugin": "^7.17.0",
-    "@typescript-eslint/parser": "^7.17.0",
-    "concurrently": "^9.0.1",
-    "eslint": "^8.57.0",
-    "eslint-config-prettier": "^9.1.0",
-    "eslint-plugin-import": "^2.29.1",
-    "jest": "^29.7.0",
-    "prettier": "^3.3.3",
-    "supertest": "^6.3.4",
-    "ts-jest": "^29.2.4",
-    "ts-node-dev": "^2.0.0",
-    "typescript": "^5.6.3"
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.23",
+    "@types/node": "^20.19.17",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

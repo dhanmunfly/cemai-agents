@@ -1,4 +1,5 @@
 import express from 'express';
+import cors from 'cors';
 import client from 'prom-client';
 import { trace, context } from '@opentelemetry/api';
 import { logger } from './utils/logger';
@@ -11,9 +12,18 @@ import { PubSubService } from './services/pubsub-service';
 import { LSF_PREDICTION_MODEL, QUALITY_BAND_TOLERANCE, CONTROL_VARIABLES } from './config/constants';
 
 const app = express();
+
+// CORS configuration
+app.use(cors({
+  origin: ['http://localhost:3000', 'http://localhost:5173', 'https://cemai-infrastructure-ui-dev-2e6ovquneq-el.a.run.app'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
 app.use(express.json());
 
-const port = process.env.PORT ? Number(process.env.PORT) : 8081;
+const port = process.env.PORT ? Number(process.env.PORT) : 8080;
 const projectId = process.env.GOOGLE_CLOUD_PROJECT || 'cemai-agents';
 const region = process.env.GOOGLE_CLOUD_REGION || 'us-central1';
 
@@ -994,6 +1004,48 @@ async function subscribeToProcessData() {
     logger.error('Failed to initialize Pub/Sub subscriptions', { error: err.message });
   }
 }
+
+// Authentication endpoints
+app.post('/api/v1/auth/login', (req, res) => {
+  const { username, password } = req.body;
+  
+  // Demo credentials for development
+  if (username === 'operator@cemai.com' && password === 'password123') {
+    res.status(200).json({
+      token: 'mock-jwt-token-' + Date.now(),
+      refreshToken: 'mock-refresh-token-' + Date.now(),
+      user: { 
+        id: 'user-123', 
+        email: username, 
+        role: 'operator',
+        name: 'CemAI Operator'
+      },
+      expiresIn: 3600
+    });
+  } else {
+    res.status(401).json({ 
+      message: 'Invalid credentials',
+      error: 'AUTHENTICATION_FAILED'
+    });
+  }
+});
+
+app.post('/api/v1/auth/refresh', (req, res) => {
+  res.status(200).json({
+    token: 'new-mock-jwt-token-' + Date.now(),
+    refreshToken: 'new-mock-refresh-token-' + Date.now(),
+    expiresIn: 3600
+  });
+});
+
+app.get('/api/v1/auth/me', (req, res) => {
+  res.status(200).json({
+    id: 'user-123',
+    email: 'operator@cemai.com',
+    role: 'operator',
+    name: 'CemAI Operator'
+  });
+});
 
 // Initialize agent
 async function initializeAgent() {
